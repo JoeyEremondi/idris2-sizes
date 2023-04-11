@@ -8,7 +8,7 @@ import Control.Order
 data Ord : Type where
   OZ : Ord
   OS : Ord -> Ord
-  OLim : (x -> Ord) -> Ord
+  OLim : (Maybe x -> Ord) -> Ord
 
 ||| Less-than relation for Brouwer Trees
 ||| Designed specifically to be transitive, rather than having transitivity as a constructor
@@ -19,12 +19,11 @@ data Ord : Type where
 data OLT : Ord -> Ord -> Type where
   OZMin : OLT OZ o
   OSucMono : OLT o1 o2 -> OLT (OS o1) (OS o2)
-  OLimUB : {0 f : x -> Ord} -> {k : x} -> OLT o (f k) -> OLT o (OLim f)
-  OLimLeast : ((k : x) -> OLT (f k) o) -> OLT (OLim f) o
+  OLimUB : {0 f : Maybe x -> Ord} -> {k : Maybe x} -> OLT o (f k) -> OLT o (OLim f)
+  OLimLeast : ((k : Maybe x) -> OLT (f k) o) -> OLT (OLim f) o
 
 
 -- The less-than relation is a pre-order
-
 
 
 Reflexive Ord OLT where
@@ -50,9 +49,9 @@ data MaxView : Ord -> Ord -> Type where
   MaxZL : MaxView OZ o
   MaxZR : MaxView o OZ
   MaxSucSuc : MaxView (OS o1) (OS o2)
-  MaxLimL : MaxView (OLim f) o
-  MaxLimR :
-    (0 notLim : {x : Type} -> {f2 : x -> Ord} -> Not (o === OLim f2))
+  MaxLimL : {f : _} -> MaxView (OLim f) o
+  MaxLimR : {f : _} ->
+    (0 notLim : {x : Type} -> {f2 : Maybe x -> Ord} -> Not (o === OLim f2))
     -> MaxView o (OLim f)
 
 ||| There's a max view for any two ordinals
@@ -70,19 +69,34 @@ maxView (OS x) (OS y) = MaxSucSuc
 ||| The key detail is that the max of two successors is the successor of the maxes
 ||| which will let us implement that this is a least upper-bound for sizes
 omaxHelper : (o1 : Ord) -> (o2 : Ord) -> MaxView o1 o2 -> Ord
-omaxHelper OZ o2 MaxZL = o2
-omaxHelper o1 OZ MaxZR = o1
-omaxHelper (OLim f) o2 (MaxLimL) = OLim $ \ k => omaxHelper _ _ (maxView (f k) o2)
-omaxHelper o1 (OLim f) (MaxLimR notLim) = OLim $ \ k => omaxHelper _ _ (maxView o1 (f k))
+omaxHelper .(OZ) o2 MaxZL = o2
+omaxHelper o1 .(OZ) MaxZR = o1
+omaxHelper .(OLim f) o2 (MaxLimL) = OLim $ \ k => omaxHelper _ _ (maxView (f k) o2)
+omaxHelper o1 .(OLim f) (MaxLimR notLim) = OLim $ \ k => omaxHelper _ _ (maxView o1 (f k))
 omaxHelper (OS o1) (OS o2) MaxSucSuc = OS (omaxHelper _ _ (maxView o1 o2))
 
 omax : Ord -> Ord -> Ord
 omax o1 o2 = omaxHelper o1 o2 (maxView o1 o2)
 
-omaxLTL : (mv : MaxView o1 o2) -> OLT o1 (omaxHelper o1 o2 mv)
-omaxLTL MaxZL = OZMin
--- While processing right hand side of omaxLTL. Can't solve constraint between: omaxHelper o1 OZ MaxZR and o1.
-omaxLTL MaxZR = reflexive
-omaxLTL MaxSucSuc = ?h_2
-omaxLTL MaxLimL = ?h_3
-omaxLTL (MaxLimR notLim) = ?h_4
+underLim :  {o : Ord} -> {f : _} -> ((k : Maybe x) -> OLT o (f k)) -> OLT o (OLim f)
+underLim lt = OLimUB {f = f} (lt Nothing)
+
+extLim : forall x , f , g. ((k : Maybe x) -> OLT (f k) (g k) ) -> OLT (OLim f) (OLim g)
+extLim flt = OLimLeast $ \ k => OLimUB (flt k)
+
+omaxLTL : {o1 : _} -> {o2 : _} -> OLT o1 (omax o1 o2)
+omaxLTL {o1} {o2}  with (maxView o1 o2)
+  omaxLTL {o1 = OZ} {o2 = o2} | MaxZL = OZMin
+  omaxLTL {o1 = o1} {o2 = OZ} | MaxZR = reflexive
+  omaxLTL {o1 = (OS o1)} {o2 = (OS o2)} | MaxSucSuc = OSucMono (omaxLTL {o1 = o1} {o2 = o2})
+  omaxLTL {o1 = (OLim f)} {o2 = o2} | MaxLimL = extLim $ \ k => omaxLTL {o1 = f k} {o2 = o2}
+  omaxLTL {o1 = o1} {o2 = (OLim f)} | (MaxLimR notLim) = underLim (\ k => omaxLTL {o1 = o1} {o2 = f k})
+
+
+omaxLTR : {o1 : _} -> {o2 : _} -> OLT o2 (omax o1 o2)
+omaxLTR {o1} {o2}  with (maxView o1 o2)
+  omaxLTR {o1 = OZ} {o2 = o2} | MaxZL = reflexive
+  omaxLTR {o1 = o1} {o2 = OZ} | MaxZR = OZMin
+  omaxLTR {o1 = (OS o1)} {o2 = (OS o2)} | MaxSucSuc = OSucMono (omaxLTR {o1 = o1} {o2 = o2})
+  omaxLTR {o1 = o1} {o2 = (OLim f)} | (MaxLimR notLim) = extLim $ \ k => omaxLTR {o1 = o1} {o2 = f k}
+  omaxLTR {o1 = (OLim f)} {o2 = o2 } | MaxLimL = underLim (\ k => omaxLTR {o1 = f k} {o2 = o2})
