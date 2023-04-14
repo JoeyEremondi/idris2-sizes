@@ -138,9 +138,14 @@ bmaxMonoR lt with (maxView o o1) proof eq1
     bmaxMonoR lt | MaxZR | mv2 = transitive (bmaxLTL {o2 = o2}) (rewrite eq2 in reflexive)
     bmaxMonoR lt | MaxLimL {f = f} | MaxLimL = bExtLim $ \ k => bmaxMonoR lt {o = f k}
     bmaxMonoR lt | MaxSucSuc | MaxZR impossible
-    bmaxMonoR lt | MaxSucSuc | MaxSucSuc = ?blr_5
-    bmaxMonoR lt | MaxSucSuc | (MaxLimR notLim) = ?blr_6
-    bmaxMonoR lt | (MaxLimR notLim) | mv2 = ?blr_4
+    bmaxMonoR {o1 = BS o1} {o2 = BS o2} (BSucMono lt) | MaxSucSuc | MaxSucSuc
+      = BSucMono (bmaxMonoR lt {o = o} {o1 = o1} {o2 = o2})
+    bmaxMonoR (BLimUB k lt) | MaxSucSuc {o1 = oo} | (MaxLimR notLim) =
+      transitive (bmaxMonoR' {o = oo}  lt) (BLimUB k reflexive)
+    bmaxMonoR (BLimUB k lt) | (MaxLimR notLim) | MaxZL impossible
+    bmaxMonoR (BLimUB k lt) | (MaxLimR notLim) | MaxLimL impossible
+    bmaxMonoR (BLimUB k lt) | (MaxLimR notLim) | (MaxLimR f) = ?blr_11
+    bmaxMonoR (BLimLeast {f = f} lt) | (MaxLimR notLim) | mv2 = ?blr_8
 bmaxMonoR' lt = ?blrr
 
 export
