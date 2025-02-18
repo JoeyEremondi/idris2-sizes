@@ -1,2 +1,1 @@
-# idris2-sizes
-Chan-style sized types for Idris 2, including a max operator
+Migrated to https://codeberg.org/JoeyEremondi/idris2-sizes
